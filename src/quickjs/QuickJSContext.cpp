@@ -63,6 +63,8 @@ QuickJSContext::QuickJSContext() {
         return;
     }
 
+	QuickJSRuntime::singleton->contexts.append(this);
+
     // Setup console object
     setup_console();
 }
@@ -133,6 +135,9 @@ QuickJSContext::~QuickJSContext() {
     if (ctx) {
         JS_FreeContext(ctx);
     }
+	if (QuickJSRuntime::singleton->contexts.has(this)) {
+		QuickJSRuntime::singleton->contexts.erase(this);
+	}
 }
 
 void QuickJSContext::eval(const godot::String &code) {
