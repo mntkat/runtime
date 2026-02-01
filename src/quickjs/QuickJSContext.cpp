@@ -95,20 +95,32 @@ void QuickJSContext::setup_console() {
     JS_FreeValue(ctx, global);
 }
 
+void QuickJSContext::bind_Variant() {
+	if (!ctx) return;
+}
+
+void QuickJSContext::bind_ObjectHandle() {
+	if (!ctx) return;
+}
+
+void QuickJSContext::bind_ReferenceHandle() {
+	if (!ctx) return;
+}
+
 QuickJSContext::~QuickJSContext() {
     if (ctx) {
         JS_FreeContext(ctx);
     }
 }
 
-void QuickJSContext::eval(const String &code) {
+void QuickJSContext::eval(const godot::String &code) {
     if (!ctx) {
         ERR_PRINT("QuickJS context is not initialized");
         return;
     }
 
     // Convert Godot String to C string
-    CharString utf8_code = code.utf8();
+    godot::CharString utf8_code = code.utf8();
     const char* c_code = utf8_code.get_data();
 
     // Evaluate the JavaScript code

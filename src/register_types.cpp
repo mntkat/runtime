@@ -6,9 +6,9 @@
 #include <godot_cpp/godot.hpp>
 
 #include "example_class.h"
-#include "QuickJSRuntime.h"
+#include "quickjs/QuickJSRuntime.h"
 #include "ScriptContext.h"
-#include "QuickJSContext.h"
+#include "quickjs/QuickJSContext.h"
 
 using namespace godot;
 

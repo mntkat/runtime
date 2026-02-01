@@ -38,7 +38,13 @@ Run the following command to download godot-cpp:
 env = SConscript("godot-cpp/SConstruct", {"env": env, "customs": customs})
 
 env.Append(CPPPATH=["src/"])
+env.Append(CPPPATH=["src/interop/"])
+env.Append(CPPPATH=["src/io/"])
+env.Append(CPPPATH=["src/quickjs/"])
 sources = Glob("src/*.cpp")
+sources.extend(Glob("src/interop/*.cpp"))
+sources.extend(Glob("src/io/*.cpp"))
+sources.extend(Glob("src/quickjs/*.cpp"))
 
 ### > QUICKJS STUFF
 

@@ -128,6 +128,9 @@
 		<None Include="src/**/*.h"/>
 		<None Include="src/**/*.cpp"/>
 	</ItemGroup>
+	<ItemGroup>
+	  <Content Include="SConstruct" />
+	</ItemGroup>
 
 	<!-- Build/Rebuild/Clean targets for NMake are defined in MSVC, so we need to provide them, when using MSBuild without MSVC targets -->
 	<Import Project="$(MSBuildProjectDirectory)/.sln/targets/nmake.substitution.props" Condition="!Exists('$(VCTargetsPath)/Microsoft.Cpp.targets')" />

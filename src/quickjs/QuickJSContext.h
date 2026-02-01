@@ -20,5 +20,11 @@ public:
     QuickJSContext();
     ~QuickJSContext();
 
-    virtual void eval(const String &code) override;
+    void eval(const String &code) override;
+
+	void bind_Variant() override;
+
+	void bind_ObjectHandle() override;
+
+	void bind_ReferenceHandle() override;
 };
