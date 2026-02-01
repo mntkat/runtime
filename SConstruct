@@ -5,7 +5,7 @@ import sys
 from methods import print_error
 
 
-libname = "EXTENSION-NAME"
+libname = "runtime"
 projectdir = "demo"
 
 localEnv = Environment(tools=["default"], PLATFORM="")
@@ -39,6 +39,29 @@ env = SConscript("godot-cpp/SConstruct", {"env": env, "customs": customs})
 
 env.Append(CPPPATH=["src/"])
 sources = Glob("src/*.cpp")
+
+### > QUICKJS STUFF
+
+quickjs_sources = [
+    'quickjs/quickjs-amalgam.c'
+]
+
+quickjs_env = env.Clone()
+if quickjs_env['CC'] == 'cl':
+    quickjs_env.Append(CCFLAGS=['/std:c11', '/experimental:c11atomics'])
+    quickjs_env.Append(CPPDEFINES=['WIN32_LEAN_AND_MEAN', 'QJS_BUILD_LIBC'])
+else:
+    quickjs_env.Append(CCFLAGS=['-std=c11'])
+    quickjs_env.Append(CPPDEFINES=['_GNU_SOURCE', 'QJS_BUILD_LIBC'])
+
+# Build QuickJS as a static library using the separate environment
+quickjs_lib = quickjs_env.Library('quickjs', quickjs_sources)
+
+env.Prepend(LIBS=[quickjs_lib])
+
+env.Append(CPPPATH=[ "quickjs/"])
+
+### < QUICKJS STUFF
 
 if env["target"] in ["editor", "template_debug"]:
     try:
