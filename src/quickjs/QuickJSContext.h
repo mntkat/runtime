@@ -1,6 +1,6 @@
 #pragma once
 
-#include "ScriptContext.h"
+#include "../ScriptContext.h"
 #include <quickjs.h>
 #include "QuickJSRuntime.h"
 
@@ -19,6 +19,8 @@ protected:
 public:
     QuickJSContext();
     ~QuickJSContext();
+
+	static Ref<QuickJSContext> getFromContext(JSContext* p_ctx);
 
     void eval(const String &code) override;
 

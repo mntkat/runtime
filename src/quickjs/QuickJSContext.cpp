@@ -67,6 +67,28 @@ QuickJSContext::QuickJSContext() {
     setup_console();
 }
 
+Ref<QuickJSContext> QuickJSContext::getFromContext(JSContext *p_ctx) {
+	if (!QuickJSRuntime::singleton) {
+		ERR_PRINT("QuickJSRuntime singleton is not initialized");
+		return Ref<QuickJSContext>();
+	}
+
+	if (!QuickJSRuntime::singleton->rt) {
+		ERR_PRINT("QuickJSRuntime rt is null");
+		return Ref<QuickJSContext>();
+	}
+
+	for (int i = 0; i < QuickJSRuntime::singleton->contexts.size(); i++) {
+		Variant v = QuickJSRuntime::singleton->contexts[i];
+		Ref<QuickJSContext> context = v;
+		if (context.is_valid()) {
+			if (context->ctx == p_ctx) {
+				return context;
+			}
+		}
+	}
+}
+
 void QuickJSContext::setup_console() {
     if (!ctx) return;
 

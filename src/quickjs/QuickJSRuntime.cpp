@@ -11,12 +11,6 @@ QuickJSRuntime::QuickJSRuntime(/* args */)
         ERR_PRINT("Failed to create QuickJS runtime");
         return;
     }
-
-    // Set a reasonable memory limit (256 MB)
-    JS_SetMemoryLimit(rt, 256 * 1024 * 1024);
-
-    // Set maximum stack size (1 MB)
-    JS_SetMaxStackSize(rt, 1024 * 1024);
 }
 
 QuickJSRuntime::~QuickJSRuntime()
