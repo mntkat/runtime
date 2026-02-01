@@ -6,6 +6,8 @@ QuickJSRuntime* QuickJSRuntime::singleton = nullptr;
 
 QuickJSRuntime::QuickJSRuntime(/* args */)
 {
+	contexts = godot::Array();
+
     rt = JS_NewRuntime();
     if (!rt) {
         ERR_PRINT("Failed to create QuickJS runtime");
