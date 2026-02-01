@@ -6,8 +6,11 @@
 #include <godot_cpp/godot.hpp>
 
 #include "example_class.h"
-#include "quickjs/QuickJSRuntime.h"
+
 #include "ScriptContext.h"
+#include "interop/ScriptObject.h"
+#include "interop/ScriptFunction.h"
+#include "quickjs/QuickJSRuntime.h"
 #include "quickjs/QuickJSContext.h"
 
 using namespace godot;
@@ -18,8 +21,11 @@ void initialize_gdextension_types(ModuleInitializationLevel p_level)
 		return;
 	}
 	GDREGISTER_CLASS(ExampleClass);
-	GDREGISTER_CLASS(ScriptContext);
+	GDREGISTER_ABSTRACT_CLASS(ScriptContext);
+	GDREGISTER_ABSTRACT_CLASS(ScriptObject);
+	GDREGISTER_ABSTRACT_CLASS(ScriptFunction);
 	GDREGISTER_CLASS(QuickJSContext);
+	QuickJSRuntime::singleton = new QuickJSRuntime();
 }
 
 void uninitialize_gdextension_types(ModuleInitializationLevel p_level) {
@@ -33,7 +39,6 @@ extern "C"
 	// Initialization
 	GDExtensionBool GDE_EXPORT example_library_init(GDExtensionInterfaceGetProcAddress p_get_proc_address, GDExtensionClassLibraryPtr p_library, GDExtensionInitialization *r_initialization)
 	{
-		QuickJSRuntime::singleton = new QuickJSRuntime();
 		GDExtensionBinding::InitObject init_obj(p_get_proc_address, p_library, r_initialization);
 		init_obj.register_initializer(initialize_gdextension_types);
 		init_obj.register_terminator(uninitialize_gdextension_types);
