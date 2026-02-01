@@ -17,21 +17,10 @@ public:
 
 	virtual void eval(const String &code) {}
 
-	virtual void bind_variant() {}
-	virtual void bind_array() {}
-	virtual void bind_dictionary() {}
-	virtual void bind_vector2() {}
-	virtual void bind_rect2() {}
-	virtual void bind_vector2i() {}
-	virtual void bind_rect2i() {}
-	virtual void bind_vector3() {}
-	virtual void bind_vector3i() {}
-	virtual void bind_vector4() {}
-	virtual void bind_vector4i() {}
-	virtual void bind_quaternion() {}
-	virtual void bind_basis() {}
-	virtual void bind_transform3d() {}
-	virtual void bind_transform2d() {}
-	virtual void bind_aabb() {}
-	virtual void bind_color() {}
+	void bind_Variant();
+	void bind_Variant_sandboxed(const Array& classnames);
+	void bind_ObjectHandle_sandboxed(const Array& classnames);
+	void bind_ObjectHandle();
+	void bind_ReferenceHandle();
+	void bind_ReferenceHandle_sandboxed(const Array& classnames);
 };
