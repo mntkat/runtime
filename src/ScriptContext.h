@@ -17,10 +17,10 @@ public:
 
 	virtual void eval(const String &code) {}
 
-	void bind_Variant();
-	void bind_Variant_sandboxed(const Array& classnames);
-	void bind_ObjectHandle_sandboxed(const Array& classnames);
-	void bind_ObjectHandle();
-	void bind_ReferenceHandle();
-	void bind_ReferenceHandle_sandboxed(const Array& classnames);
+	virtual void bind_Variant() {}
+	virtual void bind_Variant_sandboxed(const Array& classnames) {}
+	virtual void bind_ObjectHandle_sandboxed(const Array& classnames) {}
+	virtual void bind_ObjectHandle() {}
+	virtual void bind_ReferenceHandle() {}
+	virtual void bind_ReferenceHandle_sandboxed(const Array& classnames) {}
 };
