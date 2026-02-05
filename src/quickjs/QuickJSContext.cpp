@@ -1,5 +1,7 @@
 #include "QuickJSContext.h"
 #include <godot_cpp/variant/utility_functions.hpp>
+#include <stdint.h>
+#include <string.h>
 
 #ifndef countof
 #define countof(x) (sizeof(x) / sizeof((x)[0]))
@@ -44,7 +46,7 @@ static JSValue js_console_error(JSContext *ctx, JSValueConst this_val, int argc,
 }
 
 static Variant unwrapVariant(JSContext* ctx, JSValueConst val) {
-	return static_cast<Variant>(JS_GetOpaque(val, QuickJSContext::getFromContext(ctx)->VariantClassID));
+	return (static_cast<Variant>(JS_GetOpaque(val, QuickJSContext::getFromContext(ctx)->VariantClassID)));
 }
 static ObjectHandle* unwrapObjectHandle(JSContext* ctx, JSValueConst val) {
 	// Use the ObjectHandle class id when unwrapping an ObjectHandle
@@ -133,8 +135,8 @@ static JSValue intToVariant(JSContext* ctx, JSValueConst this_val, int argc, JSV
 		return JS_EXCEPTION;
 	}
 
-	int64_t tmp;
-	int ret = JS_ToBigInt64(ctx, &tmp, argv[0]);
+	double tmp;
+	int ret = JS_ToFloat64(ctx, &tmp, argv[0]);
 	if (ret < 0) return JS_EXCEPTION;
 	int i = static_cast<int>(tmp);
 
@@ -316,8 +318,8 @@ static JSValue variantToInt(JSContext* ctx, JSValueConst this_val, int argc, JSV
 	Variant variant = unwrapVariant(ctx, this_val);
 	if (!variant) return JS_EXCEPTION;
 
-	int64_t i = variant;
-	return JS_NewInt64(ctx, i);
+	double i = variant;
+	return JS_NewFloat64(ctx, i);
 }
 
 static JSValue variantToFloat32(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv) {
@@ -434,13 +436,11 @@ static JSValue ctorObjectHandle(JSContext* ctx, JSValueConst new_target, int arg
 	Array args;
 	int scriptType = 0;
 	if (argc == 2) {
-		int64_t tmp;
-		int ret = JS_ToBigInt64(ctx, &tmp, argv[0]);
+		double tmp;
+		int ret = JS_ToFloat64(ctx, &tmp, argv[0]);
 		if (ret < 0) return JS_EXCEPTION;
 		int i = static_cast<int>(tmp);
-		if ( i < 3 && i > -1) {
-			scriptType = i;
-		}
+		scriptType = i;
 	}
 
 	ObjectHandle* handle = new ObjectHandle(className, scriptType);
@@ -650,13 +650,11 @@ static JSValue ctorReferenceHandle(JSContext* ctx, JSValueConst new_target, int 
 	Array args;
 	int scriptType = 0;
 	if (argc == 2) {
-		int64_t tmp;
-		int ret = JS_ToBigInt64(ctx, &tmp, argv[0]);
+		double tmp;
+		int ret = JS_ToFloat64(ctx, &tmp, argv[0]);
 		if (ret < 0) return JS_EXCEPTION;
 		int i = static_cast<int>(tmp);
-		if ( i < 3 && i > -1) {
-			scriptType = i;
-		}
+		scriptType = i;
 	}
 
 	ReferenceHandle* handle = new ReferenceHandle(className, scriptType);
@@ -788,6 +786,18 @@ void QuickJSContext::_bind_methods() {
 }
 
 QuickJSContext::QuickJSContext() {
+	VariantClassID = 0;
+	ObjectHandleClassID = 0;
+	ReferenceHandleClassID = 0;
+
+	VariantClassProto = JS_UNDEFINED;
+	ObjectHandleClassProto = JS_UNDEFINED;
+	ReferenceHandleClassProto = JS_UNDEFINED;
+
+	VariantClassDef = nullptr;
+	ObjectHandleClassDef = nullptr;
+	ReferenceHandleClassDef = nullptr;
+
     // Check if singleton exists and runtime is valid
     if (!QuickJSRuntime::singleton) {
         ERR_PRINT("QuickJSRuntime singleton is not initialized");
@@ -835,6 +845,7 @@ Ref<QuickJSContext> QuickJSContext::getFromContext(JSContext *p_ctx) {
 			}
 		}
 	}
+	return Ref<QuickJSContext>();
 }
 
 
@@ -871,10 +882,15 @@ void QuickJSContext::bind_Variant() {
 
 	JS_NewClassID(QuickJSRuntime::singleton->rt, &VariantClassID);
 
-	JS_NewClass(QuickJSRuntime::singleton->rt, VariantClassID, VariantClassDef);
+	VariantClassDef = new JSClassDef();
 
 	VariantClassDef->class_name = "VariantObject";
 	VariantClassDef->finalizer = finalizerVariant;
+
+	if (JS_NewClass(QuickJSRuntime::singleton->rt, VariantClassID, VariantClassDef) != 0) {
+		ERR_PRINT("Failed to create new class for Variant");
+		return;
+	}
 
 	// Get the global object
 	JSValue global = JS_GetGlobalObject(ctx);
@@ -887,7 +903,8 @@ void QuickJSContext::bind_Variant() {
 	JS_SetConstructor(ctx, ctor, VariantClassProto);
 	JS_SetClassProto(ctx, VariantClassID, VariantClassProto);
 
-	JS_SetPropertyStr(ctx, global, "VariantObject", ctor);
+	JS_SetPropertyStr(ctx, global, "VariantObject", VariantClassProto);
+	JS_SetPropertyStr(ctx, global, "Nil", ctor);
 	JS_FreeValue(ctx, global);
 }
 
@@ -896,10 +913,15 @@ void QuickJSContext::bind_ObjectHandle() {
 
 	JS_NewClassID(QuickJSRuntime::singleton->rt, &ObjectHandleClassID);
 
-	JS_NewClass(QuickJSRuntime::singleton->rt, ObjectHandleClassID, ObjectHandleClassDef);
+	ObjectHandleClassDef = new JSClassDef();
 
 	ObjectHandleClassDef->class_name = "ObjectHandle";
 	ObjectHandleClassDef->finalizer = finalizerObjectHandle;
+
+	if (JS_NewClass(QuickJSRuntime::singleton->rt, ObjectHandleClassID, ObjectHandleClassDef) != 0) {
+		ERR_PRINT("Failed to create new class for ObjectHandle");
+		return;
+	}
 
 	JSValue global = JS_GetGlobalObject(ctx);
 
@@ -912,6 +934,7 @@ void QuickJSContext::bind_ObjectHandle() {
 	JS_SetClassProto(ctx, ObjectHandleClassID, ObjectHandleClassProto);
 
 	JS_SetPropertyStr(ctx, global, "ObjectHandle", ctor);
+	JS_SetPropertyStr(ctx, global, "ObjectHandleGlobal", ObjectHandleClassProto);
 }
 
 void QuickJSContext::bind_ReferenceHandle() {
@@ -919,10 +942,15 @@ void QuickJSContext::bind_ReferenceHandle() {
 
 	JS_NewClassID(QuickJSRuntime::singleton->rt, &ReferenceHandleClassID);
 
-	JS_NewClass(QuickJSRuntime::singleton->rt, ReferenceHandleClassID, ReferenceHandleClassDef);
+	ReferenceHandleClassDef = new JSClassDef();
 
 	ReferenceHandleClassDef->class_name = "ReferenceHandle";
 	ReferenceHandleClassDef->finalizer = finalizerReferenceHandle;
+
+	if (JS_NewClass(QuickJSRuntime::singleton->rt, ReferenceHandleClassID, ReferenceHandleClassDef) != 0) {
+		ERR_PRINT("Failed to create new class for ReferenceHandle");
+		return;
+	}
 
 	JSValue global = JS_GetGlobalObject(ctx);
 
@@ -934,7 +962,7 @@ void QuickJSContext::bind_ReferenceHandle() {
 	JS_SetConstructor(ctx, cotr, ReferenceHandleClassProto);
 	JS_SetClassProto(ctx, ReferenceHandleClassID, ReferenceHandleClassProto);
 
-	JS_SetPropertyStr(ctx, global, "ReferenceHandle", cotr);
+	JS_SetPropertyStr(ctx, global, "ReferenceHandle",  cotr);
 }
 
 QuickJSContext::~QuickJSContext() {
