@@ -435,7 +435,7 @@ static const JSCFunctionListEntry jsVariantFuncs[] = {
 	JS_CFUNC_DEF("fromRefHandle", 0, refHandleToVariant),
 	JS_CFUNC_DEF("type", 0, jsVariantType),
 	JS_CFUNC_DEF("toString", 0, variantToStr),
-	JS_CFUNC_DEF("toInt", 0, variantToInt),
+	JS_CFUNC_DEF("toIntF64", 0, variantToInt),
 	JS_CFUNC_DEF("toFloat32", 0, variantToFloat32),
 	JS_CFUNC_DEF("toFloat64", 0, variantToFloat64),
 	JS_CFUNC_DEF("toBool", 0, variantToBool),

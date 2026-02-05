@@ -12,7 +12,7 @@ func _ready() -> void:
 	scriptContext.eval("console.log('Hello, World!')")
 	scriptContext.eval("
 		var ref = new ReferenceHandle('res://printer.gd', 1);
-		var nameVar = VariantObject.fromString(\"Himiko\")
+		var nameVar = VariantHandle.fromString(\"Himiko\")
 		var nameStr = nameVar.toString();
 		console.log(\"Himiko\");
 		console.log(nameStr);
