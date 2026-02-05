@@ -6,6 +6,8 @@
 #include "../interop/ObjectHandle.h"
 #include "../interop/ReferenceHandle.h"
 
+#include <godot_cpp/godot.hpp>
+
 using namespace godot;
 
 class QuickJSContext : public ScriptContext {
@@ -16,12 +18,6 @@ protected:
 
     JSContext *ctx;
 
-
-
-	JSValue VariantClassProto;
-	JSValue ObjectHandleClassProto;
-	JSValue ReferenceHandleClassProto;
-
 	JSClassDef* VariantClassDef;
 	JSClassDef* ObjectHandleClassDef;
 	JSClassDef* ReferenceHandleClassDef;
@@ -29,6 +25,10 @@ protected:
     void setup_console();
 
 public:
+	JSValue VariantClassProto;
+	JSValue ObjectHandleClassProto;
+	JSValue ReferenceHandleClassProto;
+
 	JSClassID VariantClassID;
 	JSClassID ObjectHandleClassID;
 	JSClassID ReferenceHandleClassID;
@@ -45,4 +45,12 @@ public:
 	void bind_ObjectHandle() override;
 
 	void bind_ReferenceHandle() override;
+};
+
+class  QuickJSVariantProxy {
+public:
+	godot::Variant variant;
+
+	QuickJSVariantProxy(const godot::Variant& p_variant) : variant(p_variant) {}
+	~QuickJSVariantProxy() {}
 };

@@ -2,6 +2,7 @@
 #include <godot_cpp/variant/utility_functions.hpp>
 #include <stdint.h>
 #include <string.h>
+#include <iostream>
 
 #ifndef countof
 #define countof(x) (sizeof(x) / sizeof((x)[0]))
@@ -46,18 +47,42 @@ static JSValue js_console_error(JSContext *ctx, JSValueConst this_val, int argc,
 }
 
 static Variant unwrapVariant(JSContext* ctx, JSValueConst val) {
-	return (static_cast<Variant>(JS_GetOpaque(val, QuickJSContext::getFromContext(ctx)->VariantClassID)));
+	Ref<QuickJSContext> context = QuickJSContext::getFromContext(ctx);
+	if (context.is_null()) {
+		return Variant();
+	}
+	JSClassID id = context->VariantClassID;
+	void* opaque = JS_GetOpaque(val, id);
+	if (!opaque) return Variant();
+	return static_cast<QuickJSVariantProxy*>(opaque)->variant;
 }
 static ObjectHandle* unwrapObjectHandle(JSContext* ctx, JSValueConst val) {
-	// Use the ObjectHandle class id when unwrapping an ObjectHandle
-	return static_cast<ObjectHandle*>(JS_GetOpaque(val, QuickJSContext::getFromContext(ctx)->ObjectHandleClassID));
+	Ref<QuickJSContext> context = QuickJSContext::getFromContext(ctx);
+	if (context.is_null()) {
+		return nullptr;
+	}
+	JSClassID id = context->ObjectHandleClassID;
+	void* opaque = JS_GetOpaque(val, id);
+	return static_cast<ObjectHandle*>(opaque);
 }
 static ReferenceHandle* unwrapReferenceHandle(JSContext* ctx, JSValueConst val) {
-	// Use the ReferenceHandle class id when unwrapping a ReferenceHandle
-	return static_cast<ReferenceHandle*>(JS_GetOpaque(val, QuickJSContext::getFromContext(ctx)->ReferenceHandleClassID));
+	Ref<QuickJSContext> context = QuickJSContext::getFromContext(ctx);
+	if (context.is_null()) {
+		return nullptr;
+	}
+	JSClassID id = context->ReferenceHandleClassID;
+	void* opaque = JS_GetOpaque(val, id);
+	return static_cast<ReferenceHandle*>(opaque);
 }
 
 static void finalizerVariant(JSRuntime* rt, JSValue val) {
+	// finalizer does not receive a JSContext*, so avoid using one; retrieve the opaque pointer directly
+	JSClassID cid;
+	void* p = JS_GetAnyOpaque(val, &cid);
+	QuickJSVariantProxy* instance = static_cast<QuickJSVariantProxy*>(p);
+	if (instance) {
+		delete instance;
+	}
 }
 static void finalizerObjectHandle(JSRuntime* rt, JSValue val) {
 	// finalizer does not receive a JSContext*, so avoid using one; retrieve the opaque pointer directly
@@ -84,24 +109,29 @@ static JSValue ctorVariant(JSContext* ctx, JSValueConst new_target, int argc, JS
 		return JS_EXCEPTION;
 	}
 
+	Ref<QuickJSContext> context = QuickJSContext::getFromContext(ctx);
+	if (context.is_null()) {
+		return JS_EXCEPTION;
+	}
+
 	Variant variant;
 
-	JSValue proto = JS_GetPropertyStr(ctx, new_target, "prototype");
+	JSValue proto = QuickJSContext::getFromContext(ctx)->VariantClassProto;
 	if (JS_IsException(proto)) {
 		return JS_EXCEPTION;
 	}
 
-	JSValue obj = JS_NewObjectProtoClass(ctx, proto, QuickJSContext::getFromContext(ctx)->VariantClassID);
-	JS_FreeValue(ctx, proto);
+	JSValue obj = JS_NewObjectProtoClass(ctx, proto, context->VariantClassID);
 
 	if (JS_IsException(obj)) {
 		return JS_EXCEPTION;
 	}
 
-	JS_SetOpaque(obj, variant);
+	JS_SetOpaque(obj, new QuickJSVariantProxy(variant));
 
 	return obj;
 }
+
 
 static JSValue strToVariant(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv) {
 	if (argc != 1) {
@@ -113,19 +143,18 @@ static JSValue strToVariant(JSContext* ctx, JSValueConst this_val, int argc, JSV
 
 	Variant variant = str;
 
-	JSValue proto = JS_GetPropertyStr(ctx, this_val, "prototype");
+	JSValue proto = QuickJSContext::getFromContext(ctx)->VariantClassProto;
 	if (JS_IsException(proto)) {
 		return JS_EXCEPTION;
 	}
 
 	JSValue obj = JS_NewObjectProtoClass(ctx, proto, QuickJSContext::getFromContext(ctx)->VariantClassID);
-	JS_FreeValue(ctx, proto);
 
 	if (JS_IsException(obj)) {
 		return JS_EXCEPTION;
 	}
 
-	JS_SetOpaque(obj, variant);
+	JS_SetOpaque(obj, new QuickJSVariantProxy(variant));
 
 	return obj;
 }
@@ -142,19 +171,18 @@ static JSValue intToVariant(JSContext* ctx, JSValueConst this_val, int argc, JSV
 
 	Variant variant = i;
 
-	JSValue proto = JS_GetPropertyStr(ctx, this_val, "prototype");
+	JSValue proto = QuickJSContext::getFromContext(ctx)->VariantClassProto;
 	if (JS_IsException(proto)) {
 		return JS_EXCEPTION;
 	}
 
 	JSValue obj = JS_NewObjectProtoClass(ctx, proto, QuickJSContext::getFromContext(ctx)->VariantClassID);
-	JS_FreeValue(ctx, proto);
 
 	if (JS_IsException(obj)) {
 		return JS_EXCEPTION;
 	}
 
-	JS_SetOpaque(obj, variant);
+	JS_SetOpaque(obj, new QuickJSVariantProxy(variant));
 
 	return obj;
 }
@@ -171,19 +199,18 @@ static JSValue float32ToVariant(JSContext* ctx, JSValueConst this_val, int argc,
 
 	Variant variant = static_cast<float>(tmp);
 
-	JSValue proto = JS_GetPropertyStr(ctx, this_val, "prototype");
+	JSValue proto = QuickJSContext::getFromContext(ctx)->VariantClassProto;
 	if (JS_IsException(proto)) {
 		return JS_EXCEPTION;
 	}
 
 	JSValue obj = JS_NewObjectProtoClass(ctx, proto, QuickJSContext::getFromContext(ctx)->VariantClassID);
-	JS_FreeValue(ctx, proto);
 
 	if (JS_IsException(obj)) {
 		return JS_EXCEPTION;
 	}
 
-	JS_SetOpaque(obj, variant);
+	JS_SetOpaque(obj, new QuickJSVariantProxy(variant));
 
 	return obj;
 }
@@ -200,19 +227,18 @@ static JSValue float64ToVariant(JSContext* ctx, JSValueConst this_val, int argc,
 
 	Variant variant = tmp;
 
-	JSValue proto = JS_GetPropertyStr(ctx, this_val, "prototype");
+	JSValue proto = QuickJSContext::getFromContext(ctx)->VariantClassProto;
 	if (JS_IsException(proto)) {
 		return JS_EXCEPTION;
 	}
 
 	JSValue obj = JS_NewObjectProtoClass(ctx, proto, QuickJSContext::getFromContext(ctx)->VariantClassID);
-	JS_FreeValue(ctx, proto);
 
 	if (JS_IsException(obj)) {
 		return JS_EXCEPTION;
 	}
 
-	JS_SetOpaque(obj, variant);
+	JS_SetOpaque(obj, new QuickJSVariantProxy(variant));
 
 	return obj;
 }
@@ -227,19 +253,18 @@ static JSValue booToVariant(JSContext* ctx, JSValueConst this_val, int argc, JSV
 
 	Variant variant = b;
 
-	JSValue proto = JS_GetPropertyStr(ctx, this_val, "prototype");
+	JSValue proto = QuickJSContext::getFromContext(ctx)->VariantClassProto;
 	if (JS_IsException(proto)) {
 		return JS_EXCEPTION;
 	}
 
 	JSValue obj = JS_NewObjectProtoClass(ctx, proto, QuickJSContext::getFromContext(ctx)->VariantClassID);
-	JS_FreeValue(ctx, proto);
 
 	if (JS_IsException(obj)) {
 		return JS_EXCEPTION;
 	}
 
-	JS_SetOpaque(obj, variant);
+	JS_SetOpaque(obj, new QuickJSVariantProxy(variant));
 
 	return obj;
 }
@@ -254,19 +279,18 @@ static JSValue objHandleToVariant(JSContext* ctx, JSValueConst this_val, int arg
 
 	Variant variant = handle->getNative();
 
-	JSValue proto = JS_GetPropertyStr(ctx, this_val, "prototype");
+	JSValue proto = QuickJSContext::getFromContext(ctx)->VariantClassProto;
 	if (JS_IsException(proto)) {
 		return JS_EXCEPTION;
 	}
 
 	JSValue obj = JS_NewObjectProtoClass(ctx, proto, QuickJSContext::getFromContext(ctx)->VariantClassID);
-	JS_FreeValue(ctx, proto);
 
 	if (JS_IsException(obj)) {
 		return JS_EXCEPTION;
 	}
 
-	JS_SetOpaque(obj, variant);
+	JS_SetOpaque(obj, new QuickJSVariantProxy(variant));
 
 	return obj;
 }
@@ -281,29 +305,27 @@ static JSValue refHandleToVariant(JSContext* ctx, JSValueConst this_val, int arg
 
 	Variant variant = handle->getNative();
 
-	JSValue proto = JS_GetPropertyStr(ctx, this_val, "prototype");
+	JSValue proto = QuickJSContext::getFromContext(ctx)->VariantClassProto;
 	if (JS_IsException(proto)) {
 		return JS_EXCEPTION;
 	}
 
 	JSValue obj = JS_NewObjectProtoClass(ctx, proto, QuickJSContext::getFromContext(ctx)->VariantClassID);
-	JS_FreeValue(ctx, proto);
 
 	if (JS_IsException(obj)) {
 		return JS_EXCEPTION;
 	}
 
-	JS_SetOpaque(obj, variant);
+	JS_SetOpaque(obj, new QuickJSVariantProxy(variant));
 
 	return obj;
 }
 
 static JSValue jsVariantType(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv) {
 	Variant variant = unwrapVariant(ctx, this_val);
-	if (!variant) return JS_EXCEPTION;
 
 	int type = variant.get_type();
-	return JS_NewInt32(ctx, type);
+	return JS_NewFloat64(ctx, static_cast<double>(type));
 }
 
 static JSValue variantToStr(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv) {
@@ -316,7 +338,6 @@ static JSValue variantToStr(JSContext* ctx, JSValueConst this_val, int argc, JSV
 
 static JSValue variantToInt(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv) {
 	Variant variant = unwrapVariant(ctx, this_val);
-	if (!variant) return JS_EXCEPTION;
 
 	double i = variant;
 	return JS_NewFloat64(ctx, i);
@@ -324,7 +345,6 @@ static JSValue variantToInt(JSContext* ctx, JSValueConst this_val, int argc, JSV
 
 static JSValue variantToFloat32(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv) {
 	Variant variant = unwrapVariant(ctx, this_val);
-	if (!variant) return JS_EXCEPTION;
 
 	float f = variant;
 	double d = f;
@@ -333,7 +353,6 @@ static JSValue variantToFloat32(JSContext* ctx, JSValueConst this_val, int argc,
 
 static JSValue variantToFloat64(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv) {
 	Variant variant = unwrapVariant(ctx, this_val);
-	if (!variant) return JS_EXCEPTION;
 
 	double d = variant;
 	return JS_NewFloat64(ctx, d);
@@ -341,7 +360,6 @@ static JSValue variantToFloat64(JSContext* ctx, JSValueConst this_val, int argc,
 
 static JSValue variantToBool(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv) {
 	Variant variant = unwrapVariant(ctx, this_val);
-	if (!variant) return JS_EXCEPTION;
 
 	bool b = variant;
 	return JS_NewBool(ctx, b);
@@ -349,13 +367,12 @@ static JSValue variantToBool(JSContext* ctx, JSValueConst this_val, int argc, JS
 
 static JSValue variantToObjectHandle(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv) {
 	Variant variant = unwrapVariant(ctx, this_val);
-	if (!variant) return JS_EXCEPTION;
 
 	auto* handle = new ObjectHandle(variant);
 
 	JSValue global = JS_GetGlobalObject(ctx);
 	JSValue handle_ctor = JS_GetPropertyStr(ctx, global, "ObjectHandle");
-	JSValue handle_proto = JS_GetPropertyStr(ctx, handle_ctor, "prototype");
+	JSValue handle_proto = QuickJSContext::getFromContext(ctx)->ObjectHandleClassProto;
 
 	JS_FreeValue(ctx, global);
 	JS_FreeValue(ctx, handle_ctor);
@@ -380,13 +397,12 @@ static JSValue variantToObjectHandle(JSContext* ctx, JSValueConst this_val, int 
 
 static JSValue variantToReferenceHandle(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv) {
 	Variant variant = unwrapVariant(ctx, this_val);
-	if (!variant) return JS_EXCEPTION;
 
 	auto* handle = new ReferenceHandle(variant);
 
 	JSValue global = JS_GetGlobalObject(ctx);
 	JSValue handle_ctor = JS_GetPropertyStr(ctx, global, "ReferenceHandle");
-	JSValue handle_proto = JS_GetPropertyStr(ctx, handle_ctor, "prototype");
+	JSValue handle_proto = QuickJSContext::getFromContext(ctx)->ReferenceHandleClassProto;
 
 	JS_FreeValue(ctx, global);
 	JS_FreeValue(ctx, handle_ctor);
@@ -413,7 +429,7 @@ static const JSCFunctionListEntry jsVariantFuncs[] = {
 	JS_CFUNC_DEF("fromString", 0, strToVariant),
 	JS_CFUNC_DEF("fromInt", 0, intToVariant),
 	JS_CFUNC_DEF("fromFloat32", 0, float32ToVariant),
-	JS_CFUNC_DEF("fromFloat364", 0, float64ToVariant),
+	JS_CFUNC_DEF("fromFloat64", 0, float64ToVariant),
 	JS_CFUNC_DEF("fromBool", 0, booToVariant),
 	JS_CFUNC_DEF("fromObjHandle", 0, objHandleToVariant),
 	JS_CFUNC_DEF("fromRefHandle", 0, refHandleToVariant),
@@ -445,13 +461,12 @@ static JSValue ctorObjectHandle(JSContext* ctx, JSValueConst new_target, int arg
 
 	ObjectHandle* handle = new ObjectHandle(className, scriptType);
 
-	JSValue proto = JS_GetPropertyStr(ctx, new_target, "prototype");
+	JSValue proto = QuickJSContext::getFromContext(ctx)->ObjectHandleClassProto;
 	if (JS_IsException(proto)) {
 		return JS_EXCEPTION;
 	}
 
 	JSValue obj = JS_NewObjectProtoClass(ctx, proto, QuickJSContext::getFromContext(ctx)->ObjectHandleClassID);
-	JS_FreeValue(ctx, proto);
 
 	if (JS_IsException(obj)) {
 		return JS_EXCEPTION;
@@ -479,24 +494,21 @@ static JSValue obHandleCallStatic(JSContext* ctx, JSValueConst this_val, int arg
 	Variant res = ObjectHandle::callStatic(className, methodName, args);
 
 	JSValue global = JS_GetGlobalObject(ctx);
-	JSValue variant_ctor = JS_GetPropertyStr(ctx, global, "VariantObject");
-	JSValue variant_proto = JS_GetPropertyStr(ctx, variant_ctor, "prototype");
+	JSValue variant_proto = QuickJSContext::getFromContext(ctx)->VariantClassProto;
 
 	JS_FreeValue(ctx, global);
-	JS_FreeValue(ctx, variant_ctor);
 
 	if (JS_IsException(variant_proto)) {
 		return JS_EXCEPTION;
 	}
 
 	JSValue js_handle_obj = JS_NewObjectProtoClass(ctx, variant_proto, QuickJSContext::getFromContext(ctx)->VariantClassID);
-	JS_FreeValue(ctx, variant_proto);
 
 	if (JS_IsException(js_handle_obj)) {
 		return JS_EXCEPTION;
 	}
 
-	JS_SetOpaque(js_handle_obj, res);
+	JS_SetOpaque(js_handle_obj, new QuickJSVariantProxy(res));
 
 	return js_handle_obj;
 }
@@ -512,7 +524,7 @@ static JSValue objHandleGetSingleton(JSContext* ctx, JSValueConst this_val, int 
 
 	JSValue global = JS_GetGlobalObject(ctx);
 	JSValue handle_ctor = JS_GetPropertyStr(ctx, global, "ObjectHandle");
-	JSValue handle_proto = JS_GetPropertyStr(ctx, handle_ctor, "prototype");
+	JSValue handle_proto = QuickJSContext::getFromContext(ctx)->ObjectHandleClassProto;
 
 	JS_FreeValue(ctx, global);
 	JS_FreeValue(ctx, handle_ctor);
@@ -556,24 +568,21 @@ static JSValue obHandleCall(JSContext* ctx, JSValueConst this_val, int argc, JSV
 	Variant res = handle->call( methodName, args);
 
 	JSValue global = JS_GetGlobalObject(ctx);
-	JSValue variant_ctor = JS_GetPropertyStr(ctx, global, "VariantObject");
-	JSValue variant_proto = JS_GetPropertyStr(ctx, variant_ctor, "prototype");
+	JSValue variant_proto = QuickJSContext::getFromContext(ctx)->VariantClassProto;
 
 	JS_FreeValue(ctx, global);
-	JS_FreeValue(ctx, variant_ctor);
 
 	if (JS_IsException(variant_proto)) {
 		return JS_EXCEPTION;
 	}
 
 	JSValue js_handle_obj = JS_NewObjectProtoClass(ctx, variant_proto, QuickJSContext::getFromContext(ctx)->VariantClassID);
-	JS_FreeValue(ctx, variant_proto);
 
 	if (JS_IsException(js_handle_obj)) {
 		return JS_EXCEPTION;
 	}
 
-	JS_SetOpaque(js_handle_obj, res);
+	JS_SetOpaque(js_handle_obj, new QuickJSVariantProxy(res));
 
 	return js_handle_obj;
 }
@@ -583,7 +592,7 @@ static JSValue obHandleGet(JSContext* ctx, JSValueConst this_val, int argc, JSVa
 		return JS_EXCEPTION;
 	}
 
-	const char* propName = JS_ToCString(ctx, argv[0]);
+	const char* propName = JS_ToCString(ctx, argv[1]);
 
 	ObjectHandle* handle = unwrapObjectHandle(ctx, this_val);
 	if (!handle) {
@@ -593,27 +602,40 @@ static JSValue obHandleGet(JSContext* ctx, JSValueConst this_val, int argc, JSVa
 	Variant res = handle->get( propName );
 
 	JSValue global = JS_GetGlobalObject(ctx);
-	JSValue variant_ctor = JS_GetPropertyStr(ctx, global, "VariantObject");
-	JSValue variant_proto = JS_GetPropertyStr(ctx, variant_ctor, "prototype");
+	JSValue variant_proto = QuickJSContext::getFromContext(ctx)->VariantClassProto;
 
 	JS_FreeValue(ctx, global);
-	JS_FreeValue(ctx, variant_ctor);
 
 	if (JS_IsException(variant_proto)) {
 		return JS_EXCEPTION;
 	}
 
 	JSValue js_handle_obj = JS_NewObjectProtoClass(ctx, variant_proto, QuickJSContext::getFromContext(ctx)->VariantClassID);
-	JS_FreeValue(ctx, variant_proto);
 
 	if (JS_IsException(js_handle_obj)) {
 		return JS_EXCEPTION;
 	}
 
-	JS_SetOpaque(js_handle_obj, res);
+	JS_SetOpaque(js_handle_obj, new QuickJSVariantProxy(res));
 
 	return js_handle_obj;
 }
+
+static JSValue obHandleIsNull(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv) {
+	if (argc != 0) {
+		return JS_EXCEPTION;
+	}
+
+	ObjectHandle* handle = unwrapObjectHandle(ctx, this_val);
+	if (!handle) {
+		return JS_EXCEPTION;
+	}
+
+	bool isNull = handle->isNull();
+
+	return JS_NewBool(ctx, isNull);
+}
+
 
 static JSValue obHandleSet(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv) {
 	if (argc <= 2) {
@@ -638,7 +660,8 @@ static const JSCFunctionListEntry jsObjHandleFuncs[] = {
 	JS_CFUNC_DEF("callStatic", 0, obHandleCallStatic),
 	JS_CFUNC_DEF("call", 0, obHandleCall),
 	JS_CFUNC_DEF("get", 0, obHandleGet),
-	JS_CFUNC_DEF("set", 0, obHandleSet)
+	JS_CFUNC_DEF("set", 0, obHandleSet),
+	JS_CFUNC_DEF("isNull", 0, obHandleIsNull)
 };
 
 static JSValue ctorReferenceHandle(JSContext* ctx, JSValueConst new_target, int argc, JSValueConst* argv) {
@@ -651,7 +674,7 @@ static JSValue ctorReferenceHandle(JSContext* ctx, JSValueConst new_target, int 
 	int scriptType = 0;
 	if (argc == 2) {
 		double tmp;
-		int ret = JS_ToFloat64(ctx, &tmp, argv[0]);
+		int ret = JS_ToFloat64(ctx, &tmp, argv[1]);
 		if (ret < 0) return JS_EXCEPTION;
 		int i = static_cast<int>(tmp);
 		scriptType = i;
@@ -659,19 +682,30 @@ static JSValue ctorReferenceHandle(JSContext* ctx, JSValueConst new_target, int 
 
 	ReferenceHandle* handle = new ReferenceHandle(className, scriptType);
 
-	JSValue proto = JS_GetPropertyStr(ctx, new_target, "prototype");
+	JSValue proto = QuickJSContext::getFromContext(ctx)->ReferenceHandleClassProto;
 	if (JS_IsException(proto)) {
 		return JS_EXCEPTION;
 	}
 
-	JSValue obj = JS_NewObjectProtoClass(ctx, proto, QuickJSContext::getFromContext(ctx)->ObjectHandleClassID);
-	JS_FreeValue(ctx, proto);
+	JSValue obj = JS_NewObjectProtoClass(ctx, proto, QuickJSContext::getFromContext(ctx)->ReferenceHandleClassID);
 
 	if (JS_IsException(obj)) {
 		return JS_EXCEPTION;
 	}
 
 	JS_SetOpaque(obj, handle);
+	if (JS_GetOpaque(obj, QuickJSContext::getFromContext(ctx)->ReferenceHandleClassID) == nullptr) {
+		return JS_EXCEPTION;
+	}
+	if (JS_GetOpaque(obj, QuickJSContext::getFromContext(ctx)->ReferenceHandleClassID) != handle) {
+		return JS_EXCEPTION;
+	}
+	if (JS_GetOpaque(obj, QuickJSContext::getFromContext(ctx)->ReferenceHandleClassID) == nullptr) {
+		return JS_EXCEPTION;
+	}
+	if (JS_GetOpaque(obj, QuickJSContext::getFromContext(ctx)->ReferenceHandleClassID) != handle) {
+		return JS_EXCEPTION;
+	}
 
 	return obj;
 }
@@ -697,24 +731,21 @@ static JSValue refHandleCall(JSContext* ctx, JSValueConst this_val, int argc, JS
 	Variant res = handle->call( methodName, args);
 
 	JSValue global = JS_GetGlobalObject(ctx);
-	JSValue variant_ctor = JS_GetPropertyStr(ctx, global, "VariantObject");
-	JSValue variant_proto = JS_GetPropertyStr(ctx, variant_ctor, "prototype");
+	JSValue variant_proto = QuickJSContext::getFromContext(ctx)->VariantClassProto;
 
 	JS_FreeValue(ctx, global);
-	JS_FreeValue(ctx, variant_ctor);
 
 	if (JS_IsException(variant_proto)) {
 		return JS_EXCEPTION;
 	}
 
 	JSValue js_handle_obj = JS_NewObjectProtoClass(ctx, variant_proto, QuickJSContext::getFromContext(ctx)->VariantClassID);
-	JS_FreeValue(ctx, variant_proto);
 
 	if (JS_IsException(js_handle_obj)) {
 		return JS_EXCEPTION;
 	}
 
-	JS_SetOpaque(js_handle_obj, res);
+	JS_SetOpaque(js_handle_obj, new QuickJSVariantProxy(res));
 
 	return js_handle_obj;
 }
@@ -734,24 +765,21 @@ static JSValue refHandleGet(JSContext* ctx, JSValueConst this_val, int argc, JSV
 	Variant res = handle->get( propName );
 
 	JSValue global = JS_GetGlobalObject(ctx);
-	JSValue variant_ctor = JS_GetPropertyStr(ctx, global, "VariantObject");
-	JSValue variant_proto = JS_GetPropertyStr(ctx, variant_ctor, "prototype");
+	JSValue variant_proto = QuickJSContext::getFromContext(ctx)->VariantClassProto;
 
 	JS_FreeValue(ctx, global);
-	JS_FreeValue(ctx, variant_ctor);
 
 	if (JS_IsException(variant_proto)) {
 		return JS_EXCEPTION;
 	}
 
 	JSValue js_handle_obj = JS_NewObjectProtoClass(ctx, variant_proto, QuickJSContext::getFromContext(ctx)->VariantClassID);
-	JS_FreeValue(ctx, variant_proto);
 
 	if (JS_IsException(js_handle_obj)) {
 		return JS_EXCEPTION;
 	}
 
-	JS_SetOpaque(js_handle_obj, res);
+	JS_SetOpaque(js_handle_obj, new QuickJSVariantProxy(res));
 
 	return js_handle_obj;
 }
@@ -774,10 +802,26 @@ static JSValue refHandleSet(JSContext* ctx, JSValueConst this_val, int argc, JSV
 	return this_val;
 }
 
+static JSValue refHandleIsValid(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv) {
+	if (argc != 0) {
+		return JS_EXCEPTION;
+	}
+
+	ReferenceHandle* handle = unwrapReferenceHandle(ctx, this_val);
+	if (!handle) {
+		return JS_EXCEPTION;
+	}
+
+	bool isValid = handle->isValid();
+
+	return JS_NewBool(ctx, isValid);
+}
+
 static const JSCFunctionListEntry jsRefHandleFuncs[] = {
 	JS_CFUNC_DEF("call", 0, refHandleCall),
 	JS_CFUNC_DEF("get", 0, refHandleGet),
-	JS_CFUNC_DEF("set", 0, refHandleSet)
+	JS_CFUNC_DEF("set", 0, refHandleSet),
+	JS_CFUNC_DEF("isValid", 0, refHandleIsValid)
 };
 
 
@@ -819,33 +863,16 @@ QuickJSContext::QuickJSContext() {
         return;
     }
 
-	QuickJSRuntime::singleton->contexts.append(this);
+    JS_SetContextOpaque(ctx, this);
 
     // Setup console object
     setup_console();
 }
 
 Ref<QuickJSContext> QuickJSContext::getFromContext(JSContext *p_ctx) {
-	if (!QuickJSRuntime::singleton) {
-		ERR_PRINT("QuickJSRuntime singleton is not initialized");
-		return Ref<QuickJSContext>();
-	}
-
-	if (!QuickJSRuntime::singleton->rt) {
-		ERR_PRINT("QuickJSRuntime rt is null");
-		return Ref<QuickJSContext>();
-	}
-
-	for (int i = 0; i < QuickJSRuntime::singleton->contexts.size(); i++) {
-		Variant v = QuickJSRuntime::singleton->contexts[i];
-		Ref<QuickJSContext> context = v;
-		if (context.is_valid()) {
-			if (context->ctx == p_ctx) {
-				return context;
-			}
-		}
-	}
-	return Ref<QuickJSContext>();
+    if (!p_ctx) return Ref<QuickJSContext>();
+    QuickJSContext* context = static_cast<QuickJSContext*>(JS_GetContextOpaque(p_ctx));
+    return Ref<QuickJSContext>(context);
 }
 
 
@@ -969,9 +996,6 @@ QuickJSContext::~QuickJSContext() {
     if (ctx) {
         JS_FreeContext(ctx);
     }
-	if (QuickJSRuntime::singleton->contexts.has(this)) {
-		QuickJSRuntime::singleton->contexts.erase(this);
-	}
 }
 
 void QuickJSContext::eval(const godot::String &code) {
