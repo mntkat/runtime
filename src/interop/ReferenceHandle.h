@@ -12,7 +12,7 @@ class ReferenceHandle {
 private:
         Ref<RefCounted> native;
     public:
-        ReferenceHandle(std::string name, const Array& args = Array(), int scriptType = 0)
+        ReferenceHandle(std::string name, int scriptType = 0, const Array& args = Array())
         {
             if (scriptType == 0)
             {

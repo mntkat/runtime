@@ -3,6 +3,8 @@
 #include "../ScriptContext.h"
 #include <quickjs.h>
 #include "QuickJSRuntime.h"
+#include "../interop/ObjectHandle.h"
+#include "../interop/ReferenceHandle.h"
 
 using namespace godot;
 
@@ -14,9 +16,23 @@ protected:
 
     JSContext *ctx;
 
+
+
+	JSValue VariantClassProto;
+	JSValue ObjectHandleClassProto;
+	JSValue ReferenceHandleClassProto;
+
+	JSClassDef* VariantClassDef;
+	JSClassDef* ObjectHandleClassDef;
+	JSClassDef* ReferenceHandleClassDef;
+
     void setup_console();
 
 public:
+	JSClassID VariantClassID;
+	JSClassID ObjectHandleClassID;
+	JSClassID ReferenceHandleClassID;
+
     QuickJSContext();
     ~QuickJSContext();
 

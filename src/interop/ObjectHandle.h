@@ -13,7 +13,7 @@ class ObjectHandle {
 	private:
         Object* native = nullptr;
     public:
-        ObjectHandle(std::string name, const Array& args = Array(), int scriptType = 0)
+        ObjectHandle(std::string name, int scriptType = 0)
         {
             if (scriptType == 0)
             {
@@ -28,7 +28,7 @@ class ObjectHandle {
                 Ref<GDScript> script = res;
                 if (script.is_valid() && !script.is_null())
                 {
-                    native = script->callv( "new",  args);
+                    native = script->callv( "new",  Array());
                 }
             }
         	else if (scriptType == 2) {
@@ -38,7 +38,7 @@ class ObjectHandle {
 
         		Ref<GDScript> script = res;
         		Object* loader = script->callv( "new",  Array() );
-        		native = loader->call( "load_script", name.c_str(), args );
+        		native = loader->call( "load_script", name.c_str(), Array() );
         	}
         }
 
@@ -158,5 +158,6 @@ class ObjectHandle {
         {
         	if (isNull()) return;
             memfree( native );
+        	native = nullptr;
         }
 };
