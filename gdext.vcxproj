@@ -131,6 +131,13 @@
 	<ItemGroup>
 	  <Content Include="SConstruct" />
 	</ItemGroup>
+	<ItemGroup>
+	  <ClCompile Include="quickjs\quickjs-amalgam.c" />
+	</ItemGroup>
+	<ItemGroup>
+	  <ClInclude Include="quickjs\quickjs-libc.h" />
+	  <ClInclude Include="quickjs\quickjs.h" />
+	</ItemGroup>
 
 	<!-- Build/Rebuild/Clean targets for NMake are defined in MSVC, so we need to provide them, when using MSBuild without MSVC targets -->
 	<Import Project="$(MSBuildProjectDirectory)/.sln/targets/nmake.substitution.props" Condition="!Exists('$(VCTargetsPath)/Microsoft.Cpp.targets')" />
