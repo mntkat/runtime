@@ -911,7 +911,7 @@ void QuickJSContext::bind_Variant() {
 
 	VariantClassDef = new JSClassDef();
 
-	VariantClassDef->class_name = "VariantObject";
+	VariantClassDef->class_name = "VariantHandle";
 	VariantClassDef->finalizer = finalizerVariant;
 
 	if (JS_NewClass(QuickJSRuntime::singleton->rt, VariantClassID, VariantClassDef) != 0) {
@@ -925,12 +925,12 @@ void QuickJSContext::bind_Variant() {
 	VariantClassProto = JS_NewObject(ctx);
 	JS_SetPropertyFunctionList(ctx, VariantClassProto, jsVariantFuncs, countof(jsVariantFuncs));
 
-	JSValue ctor = JS_NewCFunction2(ctx, ctorVariant, "VariantObject", 1, JS_CFUNC_constructor, 0);
+	JSValue ctor = JS_NewCFunction2(ctx, ctorVariant, "VariantHandle", 1, JS_CFUNC_constructor, 0);
 
 	JS_SetConstructor(ctx, ctor, VariantClassProto);
 	JS_SetClassProto(ctx, VariantClassID, VariantClassProto);
 
-	JS_SetPropertyStr(ctx, global, "VariantObject", VariantClassProto);
+	JS_SetPropertyStr(ctx, global, "VariantHandle", VariantClassProto);
 	JS_SetPropertyStr(ctx, global, "Nil", ctor);
 	JS_FreeValue(ctx, global);
 }
