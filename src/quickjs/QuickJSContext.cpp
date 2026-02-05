@@ -427,7 +427,7 @@ static JSValue variantToReferenceHandle(JSContext* ctx, JSValueConst this_val, i
 
 static const JSCFunctionListEntry jsVariantFuncs[] = {
 	JS_CFUNC_DEF("fromString", 0, strToVariant),
-	JS_CFUNC_DEF("fromInt", 0, intToVariant),
+	JS_CFUNC_DEF("fromIntF64", 0, intToVariant),
 	JS_CFUNC_DEF("fromFloat32", 0, float32ToVariant),
 	JS_CFUNC_DEF("fromFloat64", 0, float64ToVariant),
 	JS_CFUNC_DEF("fromBool", 0, booToVariant),
