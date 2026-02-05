@@ -298,7 +298,7 @@ static JSValue jsVariantType(JSContext* ctx, JSValueConst this_val, int argc, JS
 	Variant variant = unwrapVariant(ctx, this_val);
 	if (!variant) return JS_EXCEPTION;
 
-	int type = variant.get_type()();
+	int type = variant.get_type();
 	return JS_NewInt32(ctx, type);
 }
 
@@ -723,7 +723,7 @@ void QuickJSContext::bind_Variant() {
 	JS_NewClass(QuickJSRuntime::singleton->rt, VariantClassID, VariantClassDef);
 
 	VariantClassDef->class_name = "VariantObject";
-	VariantClassDef->finalizer - finalizerVariant;
+	VariantClassDef->finalizer = finalizerVariant;
 
 	// Get the global object
 	JSValue global = JS_GetGlobalObject(ctx);

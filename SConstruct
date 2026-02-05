@@ -66,6 +66,10 @@ quickjs_lib = quickjs_env.Library('quickjs', quickjs_sources)
 env.Prepend(LIBS=[quickjs_lib])
 
 env.Append(CPPPATH=[ "quickjs/"])
+if env['CC'] == 'cl':
+    env.Append(CPPFLAGS=['/std:c++20'])
+else:
+    env.Append(CPPFLAGS=['-std=c++20'])
 
 ### < QUICKJS STUFF
 
