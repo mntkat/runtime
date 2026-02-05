@@ -5,6 +5,8 @@
 #define countof(x) (sizeof(x) / sizeof((x)[0]))
 #endif
 
+using namespace godot;
+
 // Console.log implementation
 static JSValue js_console_log(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     for (int i = 0; i < argc; i++) {
@@ -628,8 +630,157 @@ static JSValue obHandleSet(JSContext* ctx, JSValueConst this_val, int argc, JSVa
 
 	handle->set( propName, value );
 
-	return JS_UNDEFINED;
+	return this_val;
 }
+
+static const JSCFunctionListEntry jsObjHandleFuncs[] = {
+	JS_CFUNC_DEF("getSingleton", 0, objHandleGetSingleton),
+	JS_CFUNC_DEF("callStatic", 0, obHandleCallStatic),
+	JS_CFUNC_DEF("call", 0, obHandleCall),
+	JS_CFUNC_DEF("get", 0, obHandleGet),
+	JS_CFUNC_DEF("set", 0, obHandleSet)
+};
+
+static JSValue ctorReferenceHandle(JSContext* ctx, JSValueConst new_target, int argc, JSValueConst* argv) {
+	if (argc <= 0 || argc > 2) {
+		return JS_EXCEPTION;
+	}
+
+	const char* className = JS_ToCString(ctx, argv[0]);
+	Array args;
+	int scriptType = 0;
+	if (argc == 2) {
+		int64_t tmp;
+		int ret = JS_ToBigInt64(ctx, &tmp, argv[0]);
+		if (ret < 0) return JS_EXCEPTION;
+		int i = static_cast<int>(tmp);
+		if ( i < 3 && i > -1) {
+			scriptType = i;
+		}
+	}
+
+	ReferenceHandle* handle = new ReferenceHandle(className, scriptType);
+
+	JSValue proto = JS_GetPropertyStr(ctx, new_target, "prototype");
+	if (JS_IsException(proto)) {
+		return JS_EXCEPTION;
+	}
+
+	JSValue obj = JS_NewObjectProtoClass(ctx, proto, QuickJSContext::getFromContext(ctx)->ObjectHandleClassID);
+	JS_FreeValue(ctx, proto);
+
+	if (JS_IsException(obj)) {
+		return JS_EXCEPTION;
+	}
+
+	JS_SetOpaque(obj, handle);
+
+	return obj;
+}
+
+static JSValue refHandleCall(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv) {
+	if (argc < 1) {
+		return JS_EXCEPTION;
+	}
+
+	const char* methodName = JS_ToCString(ctx, argv[0]);
+	Array args;
+	for (int i = 1; i < argc; i++) {
+		Variant v = unwrapVariant(ctx, argv[i]);
+		if (!v) continue;
+		args.append(v);
+	}
+
+	ReferenceHandle* handle = unwrapReferenceHandle(ctx, this_val);
+	if (!handle) {
+		return JS_EXCEPTION;
+	}
+
+	Variant res = handle->call( methodName, args);
+
+	JSValue global = JS_GetGlobalObject(ctx);
+	JSValue variant_ctor = JS_GetPropertyStr(ctx, global, "VariantObject");
+	JSValue variant_proto = JS_GetPropertyStr(ctx, variant_ctor, "prototype");
+
+	JS_FreeValue(ctx, global);
+	JS_FreeValue(ctx, variant_ctor);
+
+	if (JS_IsException(variant_proto)) {
+		return JS_EXCEPTION;
+	}
+
+	JSValue js_handle_obj = JS_NewObjectProtoClass(ctx, variant_proto, QuickJSContext::getFromContext(ctx)->VariantClassID);
+	JS_FreeValue(ctx, variant_proto);
+
+	if (JS_IsException(js_handle_obj)) {
+		return JS_EXCEPTION;
+	}
+
+	JS_SetOpaque(js_handle_obj, res);
+
+	return js_handle_obj;
+}
+
+static JSValue refHandleGet(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv) {
+	if (argc <= 1) {
+		return JS_EXCEPTION;
+	}
+
+	const char* propName = JS_ToCString(ctx, argv[0]);
+
+	ReferenceHandle* handle = unwrapReferenceHandle(ctx, this_val);
+	if (!handle) {
+		return JS_EXCEPTION;
+	}
+
+	Variant res = handle->get( propName );
+
+	JSValue global = JS_GetGlobalObject(ctx);
+	JSValue variant_ctor = JS_GetPropertyStr(ctx, global, "VariantObject");
+	JSValue variant_proto = JS_GetPropertyStr(ctx, variant_ctor, "prototype");
+
+	JS_FreeValue(ctx, global);
+	JS_FreeValue(ctx, variant_ctor);
+
+	if (JS_IsException(variant_proto)) {
+		return JS_EXCEPTION;
+	}
+
+	JSValue js_handle_obj = JS_NewObjectProtoClass(ctx, variant_proto, QuickJSContext::getFromContext(ctx)->VariantClassID);
+	JS_FreeValue(ctx, variant_proto);
+
+	if (JS_IsException(js_handle_obj)) {
+		return JS_EXCEPTION;
+	}
+
+	JS_SetOpaque(js_handle_obj, res);
+
+	return js_handle_obj;
+}
+
+static JSValue refHandleSet(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv) {
+	if (argc <= 2) {
+		return JS_EXCEPTION;
+	}
+
+	const char* propName = JS_ToCString(ctx, argv[0]);
+	Variant value = unwrapVariant(ctx, argv[1]);
+
+	ReferenceHandle* handle = unwrapReferenceHandle(ctx, this_val);
+	if (!handle) {
+		return JS_EXCEPTION;
+	}
+
+	handle->set( propName, value );
+
+	return this_val;
+}
+
+static const JSCFunctionListEntry jsRefHandleFuncs[] = {
+	JS_CFUNC_DEF("call", 0, refHandleCall),
+	JS_CFUNC_DEF("get", 0, refHandleGet),
+	JS_CFUNC_DEF("set", 0, refHandleSet)
+};
 
 
 void QuickJSContext::_bind_methods() {
@@ -749,6 +900,18 @@ void QuickJSContext::bind_ObjectHandle() {
 
 	ObjectHandleClassDef->class_name = "ObjectHandle";
 	ObjectHandleClassDef->finalizer = finalizerObjectHandle;
+
+	JSValue global = JS_GetGlobalObject(ctx);
+
+	ObjectHandleClassProto = JS_NewObject(ctx);
+	JS_SetPropertyFunctionList(ctx, ObjectHandleClassProto, jsObjHandleFuncs, countof(jsObjHandleFuncs));
+
+	JSValue ctor = JS_NewCFunction2(ctx, ctorObjectHandle, "ObjectHandle", 1, JS_CFUNC_constructor, 0);
+
+	JS_SetConstructor(ctx, ctor, ObjectHandleClassProto);
+	JS_SetClassProto(ctx, ObjectHandleClassID, ObjectHandleClassProto);
+
+	JS_SetPropertyStr(ctx, global, "ObjectHandle", ctor);
 }
 
 void QuickJSContext::bind_ReferenceHandle() {
@@ -760,6 +923,18 @@ void QuickJSContext::bind_ReferenceHandle() {
 
 	ReferenceHandleClassDef->class_name = "ReferenceHandle";
 	ReferenceHandleClassDef->finalizer = finalizerReferenceHandle;
+
+	JSValue global = JS_GetGlobalObject(ctx);
+
+	ReferenceHandleClassProto = JS_NewObject(ctx);
+	JS_SetPropertyFunctionList(ctx, ReferenceHandleClassProto, jsRefHandleFuncs, countof(jsRefHandleFuncs));
+
+	JSValue cotr = JS_NewCFunction2(ctx, ctorReferenceHandle, "ReferenceHandle", 1, JS_CFUNC_constructor, 0);
+
+	JS_SetConstructor(ctx, cotr, ReferenceHandleClassProto);
+	JS_SetClassProto(ctx, ReferenceHandleClassID, ReferenceHandleClassProto);
+
+	JS_SetPropertyStr(ctx, global, "ReferenceHandle", cotr);
 }
 
 QuickJSContext::~QuickJSContext() {
